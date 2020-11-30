@@ -1,0 +1,519 @@
+---
+title: "Tarea Jonathan Ulloa"
+output: html_document
+lang: es-ES 
+---
+
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(dplyr)
+library(corrplot)
+#library(grDevices)
+#library(Hmisc)
+diamonds  <- read_csv("diamonds.csv")
+```
+
+Puede encontrar el proyecto en Git 
+[Link proyecto en Git](https://github.com/jonasalx/diamondsR)
+
+***Profe, no quise mostrar esto porque es mas de lo basico, solo dejo las lineas del script***
+diamonds  <- read_csv("diamonds.csv")   
+dim(diamonds)   
+head(diamonds)   
+str(diamonds)   
+diamonds$price   
+colnames(diamonds)   
+colSums(is.na(diamonds))   
+
+
+## 1. clasificación de variables
+
+Para cada una de las variables de la base de datos, indique si es cualitativa o cuantitativa (discreta o continua).   
+Si una variable es cuantitativa, inclúyala en un vector de caracteres llamado quantitative_vars   
+Si la variable es cualitativa, inclúyala en un vector de caracteres llamado qualitative_vars   
+Para cada una de las variables indique su escala de medición   
+Para las medidas en una escala de intervalo, agregue sus nombres a un vector de caracteres llamado interval_scale   
+Para las variables medidas en una escala de razón, agregue sus nombres como una string a un vector de caracteres llamado ratio_scale   
+Para las variables medidas en escala nominal, agregue sus nombres a un vector de caracteres llamado nominal_scale   
+Para las variables medidas en escala ordinal, agregue sus nombres a un vector de caracteres llamado ordinal_scale   
+
+### respuesta
+
+```{r}
+quantitative_vars <- c("X1", "carat", "depth", "table", "price", "x", "y", "z")
+qualitative_vars <- c("cut", "color", "clarity")
+
+interval_scale <- c("carat","depth", "table")
+ratio_scale <- c("X1","price", "x", "y", "z")
+
+nominal_scale <- c("color", "clarity")
+ordinal_scale <- c("cut")
+```
+
+
+## 2. Tablas de frecuencias variables cualitativas
+
+Utilice el enfoque dividir-aplicar-combinar para generar tablas de distribución de frecuencia para las siguientes columnas:   
+
+cut. Asigne la tabla de distribución de frecuencia a una variable denominada tabla_freq_cut   
+Llame freq a la frecuencia absoluta, porcentage a la frecuencia relativa porcentual   
+clarity. Asigne la tabla de distribución de frecuencia a una variable denominada table_freq_clarity. Llame freq a la frecuencia absoluta, porcentage a la frecuencia relativa porcentual      
+Intente analizar cada tabla e identificar cómo se distribuyen los valores y compararlos entre sí.   
+Construya un gráfico de barras para la variable cut que muestre la frecuencia absoluta, pinte las barras de color azul y construya un gráfico de barras para la variable clarity que muestre la frecuencia relativa porcentual, pinte las barras de color rojo. Comente cada uno de los gráficos   
+
+Calcule la frecuencia relativa porcentual de la variable color y Construya un gráfico circular. Comente.   
+
+Para agregar más información, Construya un gráfico de barras para la variable cut por grupo de clarity (En la estetica use x=cut y agregue fill=clarity).   
+Luego construya el mismo gráfico pero en geom_bar use position=“dodge”. Comente cada uno de los gráficos.   
+
+### respuesta
+
+***PARTE A***   
+```{r}
+tabla_freq_cut <- diamonds %>%
+  group_by(cut) %>%
+  summarize(Freq = n()) %>% 
+  mutate(Freq_rel=Freq/nrow(diamonds), 
+         Porcentage=Freq_rel*100)
+
+tabla_freq_cut
+
+table_freq_clarity <- diamonds %>%
+  group_by(clarity) %>%
+  summarize(Freq = n()) %>% 
+  mutate(Freq_rel=Freq/nrow(diamonds), 
+         Porcentage=Freq_rel*100)
+
+table_freq_clarity
+```
+
+   
+***PARTE B***    
+   
+```{r}
+ggplot(data = diamonds, 
+       aes(x = cut, fill = cut)) +
+  geom_bar(color = 'darkslategray', fill = 'steelblue') + 
+  theme(legend.position = "none")+
+  xlab("CUT") + 
+  ylab("Cantidades") + 
+  labs(title = "Gráfico de barras 1",
+  subtitle = "Frecuencia absoluta cut")
+
+ggplot(data = diamonds, 
+       aes(x = clarity, fill = clarity)) +
+  geom_bar(width = 0.4, fill='red', aes(y = (..count..)/sum(..count..))) +
+  xlab("CLARITY") +
+  scale_y_continuous("Porcentaje",labels=scales::percent) +
+  labs(title = "Gráfico de barras 2",
+  subtitle = "Frecuencia relativa porcentual clarity")
+
+```
+    
+En el primer gráfico a simple vista se aprecia que la mayoria tiene un corte "ideal" o superior     
+me extraña la baja cantidad de Fair, como si no se consideraran para la venta        
+     
+En el segundo grafico vemos que clarity "Sl1" casi llega al 25%, casi el 80% esta entre Sl1 Sl2 VS1 VS2       
+     
+En ambos graficos hay sesgo hacia la izquierda    
+    
+   
+***PARTE C***    
+   
+```{r}
+color_prop <- diamonds %>% 
+  group_by(color) %>% 
+  summarize(Prop = n() / nrow(diamonds))
+color_prop
+
+ggplot(data = color_prop, 
+       aes(x = "", y = Prop, fill = str_c(color," ",round(Prop * 100,2),"%" )   )) + 
+  geom_bar(stat = "identity", width = 0.25) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = str_c(round(Prop * 100,1), "%")), 
+            position = position_stack(vjust = 0.5)) + 
+  labs(x = NULL, 
+       y = NULL, 
+       fill = NULL, 
+       title = "Frecuencia relativa porcentual color") + 
+  theme_classic() + 
+  theme(axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+```
+    
+Vemos que la distribucion de la propiedad color es mas "pareja", casi todos estan entre un 10%-20% 
+     
+   
+***PARTE D***    
+   
+```{r}
+
+cutbyclarity <- diamonds %>% 
+  group_by(cut,clarity) %>% 
+  summarize(Prop = n() / nrow(diamonds))
+
+cutbyclarity
+
+p <- ggplot(data = diamonds,
+            mapping = aes(x = factor(cut),
+            fill = factor(clarity)))
+
+# Deje este grafico porque me gusta más
+p + geom_bar(position = 'stack', stat = 'count')   
+
+# Agrego el grafico solicitado igualmente
+p + geom_bar(position = 'dodge', stat = 'count')
+
+# Profe, este me acomoda para comparar
+p + geom_bar(position = 'fill', stat = 'count')
+
+```
+     
+En cada corte, las propiedades de claridad que mas se repiten son sl1 sl2 vs1 vs2    
+Estas propiedades (calrity) parecen ser independientes del corte     
+
+
+
+## 3. Tablas de frecuencias variables cuantitativas
+
+Agregue una nueva columna al marco de datos diamonds llamada price_categories que divida la columna price en 10 intervalos de clase.    
+Utilice el valor de 4 para el argumento dig.lab.     
+Asigne los resultados nuevamente al marco de datos price.      
+Cree una tabla de distribución de frecuencia agrupada para la variable price_categories con las siguientes características:    
+Para cada intervalo de clase, la tabla muestra la frecuencia como Freq y los porcentajes como Percentage.    
+Asigne la tabla a una variable llamada price_grouped_freq_table, luego imprímala.     
+
+
+Construya un histograma para la variable price_categories que muestre la frecuencia absoluta, use fill=“yellow” para pintar las barras de amarillo y color=“black” para que el contorno de la barras sea negra. Use layer theme(panel.background = element_rect(fill = “white”)) para que el fondo sea blanco.     
+
+
+Alinear 10 contenedores con el rango de valores presentes para la variable price. Use fill=“red” para pintar las barras y color=“black” para el contorno.     
+
+Calcule las medidas de tendencia central y analice la simetria de la distribución. Apoye su respuesta con histogramas. Comente     
+
+Construya un boxplot para la variable price    
+Calcule rango intercuatilico asigne el resultado el nombre iqr,    
+Calcule cuartil 1 y cuartil 3 asigne los nombres cuartil_1 y cuartil_3 respectivamente.   
+Calcule los límites superior e inferior fuera de los cuales los valores se consideran valores atípicos.        
+Todos los resultados asignelos a una variable llamada ´atipic´. Luego calcule los datos atípicos y asignelos a una variable llamada outliers.    
+        
+Construya un boxplot para la variable price agrupado por la variable cut. use color=“cut” para que pinte el contorno de las cajas distinguiendo el tipo de corte. Comente sus resultados.
+
+### respuesta
+
+***PARTE A***
+```{r}
+diamonds <- diamonds %>% 
+  mutate(price_categories = cut(price, breaks = 10, dig.lab = 4))
+
+
+price_grouped_freq_table <- diamonds %>% 
+  group_by(price_categories) %>% 
+  summarize(Freq = n()) %>% 
+  mutate(Percentage = Freq / nrow(diamonds) * 100) 
+
+price_grouped_freq_table
+```
+     
+
+
+***PARTE B***
+
+```{r}
+ggplot(data = price_grouped_freq_table,
+       aes(x = price_categories, y = Freq)) + 
+  geom_histogram(stat = "identity", fill = "yellow", color = "black") + 
+  theme(panel.background = element_rect(fill = "white")) 
+```
+
+
+***PARTE C***
+```{r}
+custom_binwidth <- (max(diamonds$price) - min(diamonds$price))/10
+
+ggplot(data = diamonds,
+       aes(x = price)) +
+  geom_histogram(boundary = min(  diamonds$price  ),
+                 binwidth = custom_binwidth,
+                 fill = "red", color = "black" )
+```
+
+
+***PARTE D***
+
+```{r}
+
+media <- mean(diamonds$price)
+       
+ggplot(data = diamonds,
+       aes(x = price)) +
+  geom_histogram(alpha = 0.1, 
+                 color='blue', 
+                 fill='blue', bins=10) +
+  geom_vline(aes(xintercept = mean(price), color = 'Mean'))
+
+
+median  <- median(diamonds$price)
+
+ggplot(data = diamonds,
+       aes(x = price)) +
+  geom_histogram(alpha = 0.1, 
+                 color='blue', 
+                 fill='red', bins=10) +
+  geom_vline(aes(xintercept = median(price), color = 'Median'))
+
+
+compute_mode <- function(vector) {
+  counts_df  <-  tibble(vector) %>% 
+    group_by(vector) %>% 
+    summarise(frequency=n()) %>% 
+    arrange(desc(frequency)) 
+  counts_df$vector[1]
+}
+
+compute_mode(diamonds$price)
+
+ggplot(data = diamonds,
+       aes(x = price)) +
+  geom_histogram(alpha = 0.1, 
+                 color='blue', 
+                 fill='red', bins=10) +
+  geom_vline(aes(xintercept = compute_mode(diamonds$price) , color = 'Mode'))
+```
+
+
+Histograma con media mediana y moda
+
+```{r}
+ggplot(data = diamonds,
+       aes(x = price)) +
+  geom_histogram(alpha = 0.1, 
+                 color='blue', 
+                 fill='red', bins=10) +
+  geom_vline(aes(xintercept = mean(price), color = 'Mean'))+
+  geom_vline(aes(xintercept = median(price), color = 'Median'))+
+  geom_vline(aes(xintercept = compute_mode(diamonds$price) , color = 'Mode'))
+```
+
+***PARTE E***
+
+```{r}
+boxplot <- ggplot(data = diamonds,
+            aes(x = "", y = price, group = 1)) +
+            geom_boxplot()
+
+
+q1<- quantile(diamonds$price, p=0.25)
+q1
+
+q2<- quantile(diamonds$price, p=0.75)
+q2
+
+iqr <- q2 - q1
+iqr
+```
+
+***valores atípicos se definen  Q3+1.5∗IQR o más bajos que Q1−1.5∗IQR ***
+
+```{r}
+
+lower_bound <- q1 - (1.5 * iqr)
+lower_bound
+
+upper_bound <- q2  + (1.5 * iqr)
+upper_bound
+
+
+
+outliers_low <- sum(diamonds$price < lower_bound) 
+outliers_low
+
+outliers_high <- sum(diamonds$price > upper_bound)
+outliers_high
+
+
+atipic<- diamonds %>% filter(price < lower_bound |  price > upper_bound) %>% select(price)
+
+outliers <- ggplot_build( boxplot )[["data"]][[1]][["outliers"]]
+
+```
+
+***PARTE F ***   
+
+```{r}
+boxplot2 <- ggplot(data = diamonds,
+            aes(x = price, y = cut, color = cut)) + 
+            geom_boxplot()
+
+boxplot2
+
+```
+     
+Analizando el grafico, vemos que la propiedad corte (no se si es tipo de corte, calidad u otro) no afecta significativamente el precio del diamante               
+Eso me hace pensar que otras propiedades afectaran mas significativamente el precio
+
+
+
+## 4. Calculando percentiles y rango percentiles.
+
+¿Que porcentaje de los diamantes tiene un precio superior al precio promedio? Asigne su respuesta a la variable k.
+Calcule el 30% de los diamentes que tienen menor precio. Asigne su respuesta a la variable P30.
+Calcule el 20% de los diamantes que tienen mayor precio.
+
+### Respuesta
+
+```{r}
+#PARTE A   
+k <- mean( diamonds$price > media ) * 100
+
+#PARTE B    
+p30 <- quantile(diamonds$price, p=0.3)
+
+#PARTE C   
+p100 <- quantile(diamonds$price, p=1)
+p80 <- quantile(diamonds$price, p=0,8)
+
+pm20 = p100 -p80
+pm20
+```
+
+
+#Profe, esto lo hago solo para ver de 10 en 10   
+```{r}
+ppp <- quantile(diamonds$price, prob = seq(0, 1, length = 11), type = 5)
+```
+
+
+## 5. Comparando la variabilidad entre dos variables numéricas.
+
+Compare la variabilidad de las variables carat y depth ¿Qué variable es más homogena? asigne sus respuestas a cv_carat y cv_depth Comente sus resultados.   
+
+```{r}
+var(diamonds$carat)
+sd(diamonds$carat)
+
+
+var(diamonds$depth)
+sd(diamonds$depth)
+
+
+
+
+cv_depth  <-sd(diamonds$depth)/mean(diamonds$depth)
+cv_carat  <-sd(diamonds$carat)/mean(diamonds$carat)
+
+```
+        
+Carat tiene mayor dispercion de datos que depth      
+es decir, depth es mas homogenea (tiene menor porcentage de variacion)
+      
+
+## 6. Covarianza y correlación
+
+Use el comando ´selec´para seleccionar de la base de datos, las variables numericas y asignelas a una variable llamada ´continuas´, luego construya una matriz de varianza- covarianza y la matriz de correlaciones de estas variables numéricas y asigne los resultados a la variable cov_continuas y cor_continuas respectivamente. Comente sus respuestas y responda ¿Que variables están más correlacionadas?. Comente
+apoye sus respuestas construyendo un gráfico para la matriz de correlaciones.
+
+Use summary para calcular un resumen de las medidas estadíticas para cada variable continua. Asige sus resultados a la variable medidas_continuas. Comente.
+
+Construya un gráfico de dispersión para las variables carat (en el ejex) y price (en el eje y). Comente.
+Construya un gráfico de dispersión para las variables carat (en el ejex) y price (en el eje y) pero agrupe por clarityusando color= clarity en la estética. Comente sus resultados.
+
+###respuesta
+
+***PARTE A***
+***No sabia bien a que funcion se referia, aplique dos***
+
+```{r}
+continuas <- diamonds %>% select_if(function(col)is.numeric(col))
+continuas2 <- diamonds %>% select(X1, carat, depth, table, price, x, y, z)
+
+
+cov_matrix <- cov(continuas)
+cor_matrix <- cor(continuas)
+
+```
+
+
+***matriz de correlaciones***   
+
+```{r}
+corrplot(cor_matrix)
+
+
+#Para visualizar mucho mejor (requiere otras librerias)
+corrplot(cor_matrix,
+         p.mat = cor_matrix,
+         method="circle",
+         type="full",
+         order="FPC",
+         tl.col="black",
+         tl.srt = 20,
+         pch.col = "blue",
+         insig = "p-value",
+         sig.level = -1,
+         col = terrain.colors(100))
+
+```
+      
+COMO LA VISUALIZACION ES MAS FACIL, RESUMO:      
+# Igual o cercano a cero  =>  relación debil o sin relación     
+# Igual o cercano a 1,    =>  relación lineal directa y fuerte     
+# Igual o cercano a -1,   =>  relación lineal inversa y fuerte
+
+
+***PARTE B***
+
+```{r}
+s_x1 <- summary(diamonds$X1)
+s_c <- summary(diamonds$carat)
+s_d <- summary(diamonds$depth)
+s_t <- summary(diamonds$table)
+s_p <- summary(diamonds$price)
+s_x <- summary(diamonds$x)
+s_y <- summary(diamonds$y)
+s_z <- summary(diamonds$z)
+
+medidas_continuas = summary(continuas)
+medidas_continuas
+
+```
+    
+Profe realmente no se que comentar, es una tabla bien resumida de las variables cuantitativas y sus propiedades
+     
+
+
+
+***PARTE C***
+Construya un gráfico de dispersión
+
+```{r}
+ggplot(data = diamonds,
+       aes(x = carat, y = price, color=price)) + 
+  geom_point() +
+  geom_jitter()+
+  labs(title="Grafico de dispersión carat VS price")
+    
+```
+     
+El grafico muestra la realacion entre el precio y peso, sin ambargo, al parecer el peso no es el atributo que mas influya en el presio, sino tendriamos una forma mas lineal.
+
+   
+   
+***PARTE D***   
+Construya un gráfico de dispersión para las variables carat (en el ejex) y price (en el eje y)
+
+```{r}
+ggplot(data = diamonds,
+       aes(x = carat, y = price, color=clarity)) + 
+  geom_point() +
+  geom_jitter()+
+  labs(title="Grafico de dispersión carat VS price agrupado por clarity")
+
+```
+    
+clarity l1 es mas desvalodara, puede tener gran peso no asi gran precio por su claridad    
+Además tiene sus datos mas dispersos 
+
+
